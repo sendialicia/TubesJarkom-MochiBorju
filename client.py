@@ -4,7 +4,7 @@ import random
 
 # Mengganti localhost dengan IP address server
 client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-client.bind(("192.168.10.231", random.randint(8000, 9000)))  # Sesuaikan IP di sini
+client.bind(("0.0.0.0", random.randint(8000, 9000)))  # Sesuaikan IP di sini
 name = input("Nickname: ")
 
 def receive():
