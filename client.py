@@ -2,8 +2,9 @@ import socket
 import threading
 import random
 
+# Mengganti localhost dengan IP address server
 client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-client.bind(("localhost", random.randint(8000, 9000)))
+client.bind(("192.168.10.231", random.randint(8000, 9000)))  # Sesuaikan IP di sini
 name = input("Nickname: ")
 
 def receive():
@@ -17,13 +18,12 @@ def receive():
 t = threading.Thread(target=receive)
 t.start()
 
-client.sendto(f"SIGNUP_TAG:{name}".encode(), ("localhost", 9999))
+# Mengirim data ke server dengan IP address server
+client.sendto(f"SIGNUP_TAG:{name}".encode(), ("192.168.10.231", 9999))  # Sesuaikan IP di sini
 
 while True:
     message = input("")
     if message == "!q":
         exit()
     else:
-        client.sendto(f"{name}: {message}".encode(), ("localhost", 9999))
-
-
+        client.sendto(f"{name}: {message}".encode(), ("192.168.10.231", 9999))  # Sesuaikan IP di sini
