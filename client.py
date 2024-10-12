@@ -19,11 +19,11 @@ t = threading.Thread(target=receive)
 t.start()
 
 # Mengirim data ke server dengan IP address server
-client.sendto(f"SIGNUP_TAG:{name}".encode(), ("192.168.10.231", 9999))  # Sesuaikan IP di sini
+client.sendto(f"SIGNUP_TAG:{name}".encode(), ("172.20.10.2", 9999))  # Sesuaikan IP di sini
 
 while True:
     message = input("")
     if message == "!q":
         exit()
     else:
-        client.sendto(f"{name}: {message}".encode(), ("192.168.10.231", 9999))  # Sesuaikan IP di sini
+        client.sendto(f"{name}: {message}".encode(), ("172.20.10.2", 9999))  # Sesuaikan IP di sini

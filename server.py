@@ -6,7 +6,7 @@ messages = queue.Queue()
 clients = []
 
 server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-server.bind(("localhost", 9999))
+server.bind(("172.20.10.2", 9999))
 
 def receive():
     while True:
