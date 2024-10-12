@@ -2,9 +2,13 @@ import socket
 import threading
 import random
 
-# Mengganti localhost dengan IP address server
+# Meminta pengguna memasukkan IP, Port server, dan password
+server_ip = input("Masukkan IP Server: ")
+server_port = int(input("Masukkan Port Server: "))
+password = input("Masukkan Password: ")
+
 client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-client.bind(("0.0.0.0", random.randint(8000, 9000)))  # Sesuaikan IP di sini
+client.bind(("localhost", random.randint(8000, 9000)))  # Bind menggunakan localhost
 name = input("Nickname: ")
 
 def receive():
@@ -12,18 +16,24 @@ def receive():
         try:
             message, _ = client.recvfrom(1024)
             print(message.decode())
-        except:
-            pass
+        except Exception as e:
+            print(f"Kesalahan saat menerima pesan: {e}")
 
 t = threading.Thread(target=receive)
 t.start()
 
-# Mengirim data ke server dengan IP address server
-client.sendto(f"SIGNUP_TAG:{name}".encode(), ("172.20.10.2", 9999))  # Sesuaikan IP di sini
+# Mengirim tanda pendaftaran dengan password
+try:
+    client.sendto(f"SIGNUP_TAG:{name}:{password}".encode(), (server_ip, server_port))  # Kirim dengan password
+except Exception as e:
+    print(f"Gagal mengirim tanda pendaftaran: {e}")
 
 while True:
     message = input("")
     if message == "!q":
         exit()
     else:
-        client.sendto(f"{name}: {message}".encode(), ("172.20.10.2", 9999))  # Sesuaikan IP di sini
+        try:
+            client.sendto(f"{name}: {message}".encode(), (server_ip, server_port))  # Kirim pesan ke server
+        except Exception as e:
+            print(f"Gagal mengirim pesan: {e}. Pastikan IP dan port server benar.")
