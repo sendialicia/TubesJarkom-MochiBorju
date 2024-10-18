@@ -10,7 +10,6 @@ server_ip = input("Masukkan IP address server: ")  # Pengguna memasukkan IP, mis
 server_port = 9999  # Port yang digunakan tetap sama
 
 # Memasukkan nickname dan password
-name = input("Nickname: ")
 password = input("Password: ")
 
 # Bind client ke IP address acak (berbeda) dengan range port
@@ -39,4 +38,4 @@ while True:
     if message == "!q":
         exit()
     else:
-        client.sendto(f"{name}: {message}".encode(), (server_ip, server_port))
+        client.sendto(f"{message}".encode(), (server_ip, server_port))

@@ -4,11 +4,11 @@ import queue
 
 # Queue untuk menyimpan pesan
 messages = queue.Queue()
-clients = {}
+clients = {}  # Menyimpan alamat IP client dan nama mereka
 
 # Membuat socket server
 server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-server_ip = "172.20.10.2"  # IP address server
+server_ip = "10.8.107.141"  # IP address server
 server_port = 9999         # Port server
 server.bind((server_ip, server_port))
 
@@ -23,8 +23,19 @@ def receive():
             # Mengecek password pada pesan pertama
             if addr not in clients:
                 if decoded_message.startswith(f"PASSWORD:{PASSWORD}"):
-                    clients[addr] = True
-                    server.sendto(f"Berhasil bergabung dengan chatroom.".encode(), addr)
+                    # Minta nama client
+                    server.sendto("Masukkan nama Anda: ".encode(), addr)
+                    name, _ = server.recvfrom(1024)
+                    name = name.decode()
+                    
+                    # Periksa keunikan nama
+                    while name in [client[1] for client in clients.values()]:
+                        server.sendto("Nama sudah digunakan, silakan masukkan nama lain: ".encode(), addr)
+                        name, _ = server.recvfrom(1024)
+                        name = name.decode()
+
+                    clients[addr] = (True, name)
+                    server.sendto(f"Berhasil bergabung dengan chatroom, {name}.".encode(), addr)
                 else:
                     server.sendto(f"Password salah. Koneksi ditolak.".encode(), addr)
                     continue
