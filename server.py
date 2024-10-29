@@ -38,6 +38,9 @@ def receive():
 
                     clients[addr] = (True, name)
                     server.sendto(f"Berhasil bergabung dengan chatroom, {name}.".encode(), addr)
+                    for client in clients:
+                        server.sendto(f"{name} joined!".encode(), client)
+                    print(f"{name} joined!")
                 else:
                     server.sendto("Password salah, silakan coba lagi.".encode(), addr)
             else:
