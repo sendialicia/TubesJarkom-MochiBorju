@@ -8,11 +8,12 @@ clients = {}  # Menyimpan alamat IP client dan nama mereka
 
 # Membuat socket server
 server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-server_ip = "10.8.107.141"  # IP address server
-server_port = 9999         # Port server
+server_ip = "0.0.0.0"  # IP address server
+server_port = 9999  # Port server
 server.bind((server_ip, server_port))
 
-PASSWORD = "chatroom123"  # Password untuk memasuki chatroom
+# Password untuk memasuki chatroom
+correct_password = "chatroom123"  
 
 def receive():
     while True:
@@ -20,14 +21,15 @@ def receive():
             message, addr = server.recvfrom(1024)
             decoded_message = message.decode()
             
-            # Mengecek password pada pesan pertama
+            # Mengecek apakah client sudah terdaftar
             if addr not in clients:
-                if decoded_message.startswith(f"PASSWORD:{PASSWORD}"):
+                # Cek apakah client mengirimkan password langsung
+                if decoded_message.strip() == correct_password:
                     # Minta nama client
                     server.sendto("Masukkan nama Anda: ".encode(), addr)
                     name, _ = server.recvfrom(1024)
                     name = name.decode()
-                    
+
                     # Periksa keunikan nama
                     while name in [client[1] for client in clients.values()]:
                         server.sendto("Nama sudah digunakan, silakan masukkan nama lain: ".encode(), addr)
@@ -37,10 +39,11 @@ def receive():
                     clients[addr] = (True, name)
                     server.sendto(f"Berhasil bergabung dengan chatroom, {name}.".encode(), addr)
                 else:
-                    server.sendto(f"Password salah. Koneksi ditolak.".encode(), addr)
-                    continue
+                    server.sendto("Password salah, silakan coba lagi.".encode(), addr)
             else:
-                messages.put((decoded_message, addr))
+                # Tambahkan nama pengirim ke pesan sebelum memasukkan ke queue
+                sender_name = clients[addr][1]
+                messages.put((f"{sender_name}: {decoded_message}", addr))
         except Exception as e:
             print(f"Error: {e}")
 
@@ -48,7 +51,9 @@ def broadcast():
     while True:
         while not messages.empty():
             message, addr = messages.get()
-            print(message)
+            print(message)  # Debug: Cetak pesan di server agar kita tahu formatnya benar
+
+            # Kirim pesan ke semua client
             for client in clients:
                 try:
                     server.sendto(message.encode(), client)

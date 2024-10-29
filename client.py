@@ -9,8 +9,8 @@ client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 server_ip = input("Masukkan IP address server: ")  # Pengguna memasukkan IP, misal 172.20.10.2
 server_port = 9999  # Port yang digunakan tetap sama
 
-# Memasukkan nickname dan password
-password = input("Password: ")
+# Memasukkan password
+password = input("PASSWORD: ")
 
 # Bind client ke IP address acak (berbeda) dengan range port
 client.bind(("", random.randint(8000, 9000)))
@@ -29,8 +29,8 @@ def receive():
 t = threading.Thread(target=receive)
 t.start()
 
-# Mengirim password ke server terlebih dahulu
-client.sendto(f"PASSWORD:{password}".encode(), (server_ip, server_port))
+# Kirim password ke server
+client.sendto(f"{password}".encode(), (server_ip, server_port))
 
 # Kirim pesan ke server setelah bergabung
 while True:
