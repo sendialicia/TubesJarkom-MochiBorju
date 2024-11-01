@@ -4,10 +4,8 @@ import argparse
 import random
 import sys
 
-# Membuat socket client
+# Client socket
 client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-
-# Flag untuk menghentikan thread menerima
 running = True
 
 def receive(args):
@@ -19,49 +17,62 @@ def receive(args):
             
             if decoded_message == "FIN":
                 client.sendto("ACK".encode(), (args.ip, args.port))
-                print("Anda telah keluar dari chatroom.")
-                break  # Exit the loop when receiving FIN
+                print("You have exited the chatroom.")
+                break
                 
             print(decoded_message)  # Handle other messages
         except Exception as e:
             print(f"Error receiving message: {e}")
             break
 
-    # Set running to False to ensure the main thread can exit
     running = False
     client.close()
 
 def main():
     parser = argparse.ArgumentParser(description="Client Chatroom")
-    parser.add_argument('--ip', type=str, required=True, help='IP address of the server')
-    parser.add_argument('--port', type=int, required=True, help='Port of the server')
+    parser.add_argument('--ip', type=str, required=True, help='Server IP address')
+    parser.add_argument('--port', type=int, required=True, help='Server port')
     args = parser.parse_args()
 
-    # Bind client ke IP address acak (berbeda) dengan range port
+    # Bind client to a random port
     client.bind(("", random.randint(8000, 9000)))
+    
+    # Begin handshake with SYN
+    client_seq = random.randint(1000, 9999)
+    client.sendto(f"SYN {client_seq}".encode(), (args.ip, args.port))
+    print(f"Sent SYN with seq {client_seq}.")
 
-    # Memasukkan password
-    password = input("Masukkan Password untuk bergabung ke chatroom: ")
-    client.sendto(f"{password}".encode(), (args.ip, args.port))
+    # Wait for SYN-ACK from server
+    message, _ = client.recvfrom(1024)
+    if message.decode().startswith("SYN-ACK"):
+        server_seq, ack = map(int, message.decode().split()[1:])
+        print(f"Received SYN-ACK with seq {server_seq}, ack {ack}.")
+        
+        # Complete handshake with ACK
+        client.sendto(f"ACK {server_seq + 1}".encode(), (args.ip, args.port))
+        print("Sent ACK to complete the handshake.")
+    
+    # Enter password and join chatroom
+    password = input("Enter password to join chatroom: ")
+    client.sendto(password.encode(), (args.ip, args.port))
 
-    # Mulai thread untuk menerima pesan
+    # Start a thread to receive messages
     t = threading.Thread(target=receive, args=(args,), daemon=True)
     t.start()
 
-    # Kirim pesan ke server setelah bergabung
+    # Send messages to server after joining
     while True:
         message = input("")
         if message == "!q":
-            # Kirim pesan FIN ke server
             client.sendto("FIN".encode(), (args.ip, args.port))
-            print("Menunggu konfirmasi dari server...")
-            break  # Exit the loop after sending FIN
+            print("Waiting for confirmation from server...")
+            break
         else:
-            client.sendto(f"{message}".encode(), (args.ip, args.port))
+            client.sendto(message.encode(), (args.ip, args.port))
 
     # Wait for the receive thread to finish
     t.join()
-    sys.exit()  # Exit the program
+    sys.exit()
 
 if __name__ == "__main__":
     main()
