@@ -2,3 +2,6 @@ ayam,ayamayaman
 daun,daunhijau
 hujan,hujanturun
 haowi,haowiiwi
+SYN 1248,pandanayam
+jelita12,jelita12
+Sendi13,Sendi13

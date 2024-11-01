@@ -3,7 +3,6 @@ import threading
 import queue
 import argparse
 import os
-import random
 
 # Queue untuk menyimpan pesan
 messages = queue.Queue()
@@ -37,17 +36,6 @@ def receive(server):
         try:
             message, addr = server.recvfrom(1024)
             decoded_message = message.decode()
-            if decoded_message.startswith("SYN"):
-                client_seq = int(decoded_message.split()[1])
-                server_seq = random.randint(1000, 9999)
-                # Send SYN-ACK
-                server.sendto(f"SYN-ACK {server_seq} {client_seq + 1}".encode(), addr)
-                print(f"Sent SYN-ACK to {addr}")
-                continue  # Wait for the next message
-
-            if decoded_message.startswith("ACK"):
-                # Handshake completed
-                print(f"Handshake completed with {addr}")
 
             # Memeriksa apakah client sudah terdaftar di chatroom
             if addr not in clients:
