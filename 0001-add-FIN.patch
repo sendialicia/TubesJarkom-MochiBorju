@@ -1,0 +1,353 @@
+From 2ce5c9c2093d8dbe57d43f2ba17a45489bcad3ac Mon Sep 17 00:00:00 2001
+From: GedeAryaRP <71829426+gedearyarp@users.noreply.github.com>
+Date: Fri, 1 Nov 2024 17:32:49 +0700
+Subject: [PATCH 1/2] add FIN
+
+---
+ 0001-trying-to-implement-handshake.patch | 126 +++++++++++++++++++++++
+ client.py                                |  76 +++++++++-----
+ server.py                                |  64 ++++++++----
+ 3 files changed, 221 insertions(+), 45 deletions(-)
+ create mode 100644 0001-trying-to-implement-handshake.patch
+
+diff --git a/0001-trying-to-implement-handshake.patch b/0001-trying-to-implement-handshake.patch
+new file mode 100644
+index 0000000..50cf00a
+--- /dev/null
++++ b/0001-trying-to-implement-handshake.patch
+@@ -0,0 +1,126 @@
++From c8b85f60499a1f191b84c939ea59458329def315 Mon Sep 17 00:00:00 2001
++From: GedeAryaRP <71829426+gedearyarp@users.noreply.github.com>
++Date: Tue, 29 Oct 2024 18:56:53 +0700
++Subject: [PATCH] trying to implement handshake
++
++---
++ client.py | 70 +++++++++++++++++++++++++++++++------------------------
++ server.py | 13 +++++++----
++ 2 files changed, 48 insertions(+), 35 deletions(-)
++
++diff --git a/client.py b/client.py
++index 88d6431..0c15b7d 100644
++--- a/client.py
+++++ b/client.py
++@@ -6,36 +6,46 @@ import random
++ client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
++ 
++ # Meminta input dari pengguna untuk IP address dan port server
++-server_ip = input("Masukkan IP address server: ")  # Pengguna memasukkan IP, misal 172.20.10.2
+++server_ip = input("Masukkan IP address server: ")  # Misalnya 127.0.0.1
++ server_port = 9999  # Port yang digunakan tetap sama
++ 
++-# Memasukkan password
++-password = input("PASSWORD: ")
++-
++-# Bind client ke IP address acak (berbeda) dengan range port
++-client.bind(("", random.randint(8000, 9000)))
++-
++-# Fungsi untuk menerima pesan dari server
++-def receive():
+++# Mengirimkan paket SYN
+++print("Mengirimkan paket SYN...")
+++client.sendto("SYN".encode(), (server_ip, server_port))
+++
+++# Menerima respons dari server
+++response, _ = client.recvfrom(1024)
+++print(response.decode())
+++
+++# Jika responsnya SYN-ACK, kirim ACK
+++if response.decode() == "SYN-ACK":
+++    print("Mengirimkan paket ACK...")
+++    client.sendto("ACK".encode(), (server_ip, server_port))
+++
+++    # Meminta input password
+++    password = input("PASSWORD: ")
+++    client.sendto(password.encode(), (server_ip, server_port))
+++
+++    # Fungsi untuk menerima pesan dari server
+++    def receive():
+++        while True:
+++            try:
+++                message, _ = client.recvfrom(1024)
+++                print(message.decode())
+++            except Exception as e:
+++                print(f"Error receiving message: {e}")
+++                break
+++
+++    # Mulai thread untuk menerima pesan
+++    t = threading.Thread(target=receive)
+++    t.start()
+++
+++    # Kirim pesan ke server setelah bergabung
++     while True:
++-        try:
++-            message, _ = client.recvfrom(1024)
++-            print(message.decode())
++-        except Exception as e:
++-            print(f"Error receiving message: {e}")
++-            break
++-
++-# Mulai thread untuk menerima pesan
++-t = threading.Thread(target=receive)
++-t.start()
++-
++-# Kirim password ke server
++-client.sendto(f"{password}".encode(), (server_ip, server_port))
++-
++-# Kirim pesan ke server setelah bergabung
++-while True:
++-    message = input("")
++-    if message == "!q":
++-        exit()
++-    else:
++-        client.sendto(f"{message}".encode(), (server_ip, server_port))
+++        message = input("")
+++        if message == "!q":
+++            exit()
+++        else:
+++            client.sendto(f"{message}".encode(), (server_ip, server_port))
+++else:
+++    print("Gagal mendapatkan SYN-ACK dari server.")
++diff --git a/server.py b/server.py
++index d16e582..e73e0a6 100644
++--- a/server.py
+++++ b/server.py
++@@ -21,11 +21,15 @@ def receive():
++             message, addr = server.recvfrom(1024)
++             decoded_message = message.decode()
++             
++-            # Mengecek apakah client sudah terdaftar
++             if addr not in clients:
++-                # Cek apakah client mengirimkan password langsung
++-                if decoded_message.strip() == correct_password:
++-                    # Minta nama client
+++                if decoded_message.strip() == "SYN":
+++                    print(f"Received SYN from {addr}")
+++                    # Kirim SYN-ACK sebagai respons
+++                    server.sendto("SYN-ACK".encode(), addr)
+++                    print(f"Sent SYN-ACK to {addr}")
+++                elif decoded_message.strip() == "ACK":
+++                    print(f"Received ACK from {addr}")
+++                elif decoded_message.strip() == correct_password:
++                     server.sendto("Masukkan nama Anda: ".encode(), addr)
++                     name, _ = server.recvfrom(1024)
++                     name = name.decode()
++@@ -44,7 +48,6 @@ def receive():
++                 else:
++                     server.sendto("Password salah, silakan coba lagi.".encode(), addr)
++             else:
++-                # Tambahkan nama pengirim ke pesan sebelum memasukkan ke queue
++                 sender_name = clients[addr][1]
++                 messages.put((f"{sender_name}: {decoded_message}", addr))
++         except Exception as e:
++-- 
++2.31.1.windows.1
++
+diff --git a/client.py b/client.py
+index 88d6431..110250b 100644
+--- a/client.py
++++ b/client.py
+@@ -1,41 +1,67 @@
+ import socket
+ import threading
++import argparse
+ import random
++import sys
+ 
+ # Membuat socket client
+ client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+ 
+-# Meminta input dari pengguna untuk IP address dan port server
+-server_ip = input("Masukkan IP address server: ")  # Pengguna memasukkan IP, misal 172.20.10.2
+-server_port = 9999  # Port yang digunakan tetap sama
++# Flag untuk menghentikan thread menerima
++running = True
+ 
+-# Memasukkan password
+-password = input("PASSWORD: ")
+-
+-# Bind client ke IP address acak (berbeda) dengan range port
+-client.bind(("", random.randint(8000, 9000)))
+-
+-# Fungsi untuk menerima pesan dari server
+-def receive():
+-    while True:
++def receive(args):
++    global running
++    while running:
+         try:
+             message, _ = client.recvfrom(1024)
+-            print(message.decode())
++            decoded_message = message.decode()
++            
++            if decoded_message == "FIN":
++                client.sendto("ACK".encode(), (args.ip, args.port))
++                print("Anda telah keluar dari chatroom.")
++                break  # Exit the loop when receiving FIN
++                
++            print(decoded_message)  # Handle other messages
+         except Exception as e:
+             print(f"Error receiving message: {e}")
+             break
+ 
+-# Mulai thread untuk menerima pesan
+-t = threading.Thread(target=receive)
+-t.start()
++    # Set running to False to ensure the main thread can exit
++    running = False
++    client.close()
++
++def main():
++    parser = argparse.ArgumentParser(description="Client Chatroom")
++    parser.add_argument('--ip', type=str, required=True, help='IP address of the server')
++    parser.add_argument('--port', type=int, required=True, help='Port of the server')
++    args = parser.parse_args()
++
++    # Bind client ke IP address acak (berbeda) dengan range port
++    client.bind(("", random.randint(8000, 9000)))
++
++    # Memasukkan password
++    password = input("Masukkan Password untuk bergabung ke chatroom: ")
++    client.sendto(f"{password}".encode(), (args.ip, args.port))
++
++    # Mulai thread untuk menerima pesan
++    t = threading.Thread(target=receive, args=(args,), daemon=True)
++    t.start()
++
++    # Kirim pesan ke server setelah bergabung
++    while True:
++        message = input("")
++        if message == "!q":
++            # Kirim pesan FIN ke server
++            client.sendto("FIN".encode(), (args.ip, args.port))
++            print("Menunggu konfirmasi dari server...")
++            break  # Exit the loop after sending FIN
++        else:
++            client.sendto(f"{message}".encode(), (args.ip, args.port))
+ 
+-# Kirim password ke server
+-client.sendto(f"{password}".encode(), (server_ip, server_port))
++    # Wait for the receive thread to finish
++    t.join()
++    sys.exit()  # Exit the program
+ 
+-# Kirim pesan ke server setelah bergabung
+-while True:
+-    message = input("")
+-    if message == "!q":
+-        exit()
+-    else:
+-        client.sendto(f"{message}".encode(), (server_ip, server_port))
++if __name__ == "__main__":
++    main()
+diff --git a/server.py b/server.py
+index d16e582..0a610c3 100644
+--- a/server.py
++++ b/server.py
+@@ -1,26 +1,21 @@
+ import socket
+ import threading
+ import queue
++import argparse
+ 
+ # Queue untuk menyimpan pesan
+ messages = queue.Queue()
+ clients = {}  # Menyimpan alamat IP client dan nama mereka
+ 
+-# Membuat socket server
+-server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+-server_ip = "0.0.0.0"  # IP address server
+-server_port = 9999  # Port server
+-server.bind((server_ip, server_port))
+-
+ # Password untuk memasuki chatroom
+-correct_password = "chatroom123"  
++correct_password = "chatroom123"
+ 
+-def receive():
++def receive(server):
+     while True:
+         try:
+             message, addr = server.recvfrom(1024)
+             decoded_message = message.decode()
+-            
++
+             # Mengecek apakah client sudah terdaftar
+             if addr not in clients:
+                 # Cek apakah client mengirimkan password langsung
+@@ -36,21 +31,37 @@ def receive():
+                         name, _ = server.recvfrom(1024)
+                         name = name.decode()
+ 
++                    # Daftarkan client dengan informasi IP, port, dan nama
+                     clients[addr] = (True, name)
+                     server.sendto(f"Berhasil bergabung dengan chatroom, {name}.".encode(), addr)
++
++                    # Kirim notifikasi ke semua client tentang client baru
+                     for client in clients:
+                         server.sendto(f"{name} joined!".encode(), client)
+-                    print(f"{name} joined!")
++
++                    print(f"Client baru terhubung - IP: {addr[0]}, Port: {addr[1]}, Username: {name}")
+                 else:
+                     server.sendto("Password salah, silakan coba lagi.".encode(), addr)
+             else:
+-                # Tambahkan nama pengirim ke pesan sebelum memasukkan ke queue
+-                sender_name = clients[addr][1]
+-                messages.put((f"{sender_name}: {decoded_message}", addr))
++                # Periksa apakah pesan adalah perintah keluar
++                if decoded_message == "FIN":
++                    server.sendto("ACK".encode(), addr)
++                    print(f"{clients[addr][1]} telah keluar dari chatroom.")
++                    # Kirim FIN ke client setelah semua pesan diproses
++                    server.sendto("FIN".encode(), addr)
++                    # Hapus client dari daftar clients
++                    del clients[addr]
++                    # Kirim pemberitahuan ke semua client yang tersisa
++                    for client in clients:
++                        server.sendto(f"{clients[addr][1]} left the chat.".encode(), client)
++                else:
++                    # Tambahkan nama pengirim ke pesan sebelum memasukkan ke queue
++                    sender_name = clients[addr][1]
++                    messages.put((f"{sender_name}: {decoded_message}", addr))
+         except Exception as e:
+             print(f"Error: {e}")
+ 
+-def broadcast():
++def broadcast(server):
+     while True:
+         while not messages.empty():
+             message, addr = messages.get()
+@@ -64,11 +75,24 @@ def broadcast():
+                     print(f"Error sending to client {client}: {e}")
+                     clients.pop(client)
+ 
+-# Mulai thread untuk menerima pesan
+-t1 = threading.Thread(target=receive)
+-t2 = threading.Thread(target=broadcast)
++def main():
++    parser = argparse.ArgumentParser(description="Server Chatroom")
++    parser.add_argument('--port', type=int, required=True, help='Port server')
++    args = parser.parse_args()
++
++    # Membuat socket server
++    server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
++    server_ip = "0.0.0.0"
++    server.bind((server_ip, args.port))
++
++    print(f"Server running on {server_ip}:{args.port}")
++
++    # Mulai thread untuk menerima pesan
++    t1 = threading.Thread(target=receive, args=(server,))
++    t2 = threading.Thread(target=broadcast, args=(server,))
+ 
+-t1.start()
+-t2.start()
++    t1.start()
++    t2.start()
+ 
+-print(f"Server running on {server_ip}:{server_port}")
++if __name__ == "__main__":
++    main()
+-- 
+2.31.1.windows.1
+

@@ -1,41 +1,67 @@
 import socket
 import threading
+import argparse
 import random
+import sys
 
 # Membuat socket client
 client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-# Meminta input dari pengguna untuk IP address dan port server
-server_ip = input("Masukkan IP address server: ")  # Pengguna memasukkan IP, misal 172.20.10.2
-server_port = 9999  # Port yang digunakan tetap sama
+# Flag untuk menghentikan thread menerima
+running = True
 
-# Memasukkan password
-password = input("PASSWORD: ")
-
-# Bind client ke IP address acak (berbeda) dengan range port
-client.bind(("", random.randint(8000, 9000)))
-
-# Fungsi untuk menerima pesan dari server
-def receive():
-    while True:
+def receive(args):
+    global running
+    while running:
         try:
             message, _ = client.recvfrom(1024)
-            print(message.decode())
+            decoded_message = message.decode()
+            
+            if decoded_message == "FIN":
+                client.sendto("ACK".encode(), (args.ip, args.port))
+                print("Anda telah keluar dari chatroom.")
+                break  # Exit the loop when receiving FIN
+                
+            print(decoded_message)  # Handle other messages
         except Exception as e:
             print(f"Error receiving message: {e}")
             break
 
-# Mulai thread untuk menerima pesan
-t = threading.Thread(target=receive)
-t.start()
+    # Set running to False to ensure the main thread can exit
+    running = False
+    client.close()
 
-# Kirim password ke server
-client.sendto(f"{password}".encode(), (server_ip, server_port))
+def main():
+    parser = argparse.ArgumentParser(description="Client Chatroom")
+    parser.add_argument('--ip', type=str, required=True, help='IP address of the server')
+    parser.add_argument('--port', type=int, required=True, help='Port of the server')
+    args = parser.parse_args()
 
-# Kirim pesan ke server setelah bergabung
-while True:
-    message = input("")
-    if message == "!q":
-        exit()
-    else:
-        client.sendto(f"{message}".encode(), (server_ip, server_port))
+    # Bind client ke IP address acak (berbeda) dengan range port
+    client.bind(("", random.randint(8000, 9000)))
+
+    # Memasukkan password
+    password = input("Masukkan Password untuk bergabung ke chatroom: ")
+    client.sendto(f"{password}".encode(), (args.ip, args.port))
+
+    # Mulai thread untuk menerima pesan
+    t = threading.Thread(target=receive, args=(args,), daemon=True)
+    t.start()
+
+    # Kirim pesan ke server setelah bergabung
+    while True:
+        message = input("")
+        if message == "!q":
+            # Kirim pesan FIN ke server
+            client.sendto("FIN".encode(), (args.ip, args.port))
+            print("Menunggu konfirmasi dari server...")
+            break  # Exit the loop after sending FIN
+        else:
+            client.sendto(f"{message}".encode(), (args.ip, args.port))
+
+    # Wait for the receive thread to finish
+    t.join()
+    sys.exit()  # Exit the program
+
+if __name__ == "__main__":
+    main()

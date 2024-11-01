@@ -1,0 +1,24 @@
+From 4eafdad96d25e889b0a36028f195abaa28f18897 Mon Sep 17 00:00:00 2001
+From: jelita12 <sekarjelita12@gmail.com>
+Date: Fri, 1 Nov 2024 17:42:55 +0700
+Subject: [PATCH 2/2] add FIN
+
+---
+ client.py | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/client.py b/client.py
+index 2ffe127..0984221 100644
+--- a/client.py
++++ b/client.py
+@@ -25,7 +25,6 @@ def receive():
+             decoded_message = message.decode()
+             
+             if decoded_message == "FIN":
+-                client.sendto("ACK".encode(), (args.ip, args.port))
+                 print("Anda telah keluar dari chatroom.")
+                 break  # Exit the loop when receiving FIN
+                 
+-- 
+2.31.1.windows.1
+
